@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "purpose": "Track legitimate automation runs and repository activity.",
+  "runs": 0,
+  "last_run": null,
+  "last_repository": null,
+  "status": "initialized"
+}
