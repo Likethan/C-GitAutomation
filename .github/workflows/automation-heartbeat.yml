@@ -1,0 +1,53 @@
+name: Automation Heartbeat
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update automation state
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+          activity_path = Path("data/activity.json")
+          activity = json.loads(activity_path.read_text())
+          activity["runs"] = int(activity.get("runs", 0)) + 1
+          activity["last_run"] = now
+          activity["last_repository"] = "${{ github.repository }}"
+          activity["status"] = "completed"
+          activity_path.write_text(json.dumps(activity, indent=2) + "\n")
+
+          last_run = {
+              "timestamp": now,
+              "repository": "${{ github.repository }}",
+              "status": "completed"
+          }
+          Path("data/last_run.json").write_text(json.dumps(last_run, indent=2) + "\n")
+
+          with Path("logs/automation.log").open("a", encoding="utf-8") as f:
+              f.write(f"{now} | repository=${{ github.repository }} | status=completed\n")
+          PY
+
+      - name: Commit automation state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/activity.json data/last_run.json logs/automation.log
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: refresh automation heartbeat"
+          git push
